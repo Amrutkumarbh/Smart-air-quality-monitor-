@@ -57,7 +57,7 @@ DHT11 / DHT22          Controls relay       Parses values     V0 – V5 pins
                            Serial (9600 baud)    Wi-Fi
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for a detailed breakdown.
+See [`docs/architecture.md`](assets/architecture.md) for a detailed breakdown.
 
 ---
 📁 Repository Structure
