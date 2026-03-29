@@ -1,44 +1,56 @@
-#define BLYNK_TEMPLATE_ID   "YOUR_TEMPLATE_ID"
-#define BLYNK_TEMPLATE_NAME "AIR QUALITY MONITORING"
-#define BLYNK_AUTH_TOKEN    "YOUR_AUTH_TOKEN"
+#include <DHT.h>
+#include <SoftwareSerial.h>
 
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <BlynkSimpleEsp32.h>
+#define DHTPIN    2
+#define DHTTYPE   DHT11
+#define MQ135_PIN A0
+#define MQ7_PIN   A1
+#define MQ2_PIN   A2
+#define RELAY_PIN 8
+#define FAN_THRESHOLD 400
 
-char ssid[] = "YOUR_WIFI_NAME";
-char pass[] = "YOUR_WIFI_PASSWORD";
-
-#define RXp2 16
-#define TXp2 17
-
-int   mq135, mq7, mq2, fanStatus;
-float temperature, humidity;
+SoftwareSerial espSerial(10, 11);
+DHT dht(DHTPIN, DHTTYPE);
 
 void setup() {
-  Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, RXp2, TXp2);
-  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  Serial.begin(9600);
+  espSerial.begin(9600);
+  dht.begin();
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH);
+  delay(2000);
 }
 
 void loop() {
-  Blynk.run();
-  if (Serial2.available()) {
-    String incoming = Serial2.readStringUntil('\n');
-    incoming.trim();
-    if (incoming.length() > 5) {
-      int parsed = sscanf(incoming.c_str(),
-                          "%d,%d,%d,%f,%f,%d",
-                          &mq135, &mq7, &mq2,
-                          &temperature, &humidity, &fanStatus);
-      if (parsed == 6) {
-        Blynk.virtualWrite(V0, mq135);
-        Blynk.virtualWrite(V1, mq7);
-        Blynk.virtualWrite(V2, mq2);
-        Blynk.virtualWrite(V3, temperature);
-        Blynk.virtualWrite(V4, humidity);
-        Blynk.virtualWrite(V5, fanStatus);
-      }
-    }
+  int   mq135Value  = analogRead(MQ135_PIN);
+  int   mq7Value    = analogRead(MQ7_PIN);
+  int   mq2Value    = analogRead(MQ2_PIN);
+  float humidity    = dht.readHumidity();
+  float temperature = dht.readTemperature();
+
+  if (isnan(humidity) || isnan(temperature)) {
+    humidity = 0.0; temperature = 0.0;
   }
+
+  int fanStatus = 0;
+  if (mq135Value > FAN_THRESHOLD ||
+      mq7Value   > FAN_THRESHOLD ||
+      mq2Value   > FAN_THRESHOLD) {
+    digitalWrite(RELAY_PIN, LOW);
+    fanStatus = 1;
+  } else {
+    digitalWrite(RELAY_PIN, HIGH);
+    fanStatus = 0;
+  }
+
+  String dataString = String(mq135Value)    + "," +
+                      String(mq7Value)       + "," +
+                      String(mq2Value)       + "," +
+                      String(temperature, 1) + "," +
+                      String(humidity, 1)    + "," +
+                      String(fanStatus);
+
+  Serial.println("Sending: " + dataString);
+  espSerial.println(dataString);
+  delay(2000);
 }
